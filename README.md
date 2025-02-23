@@ -1,7 +1,7 @@
 # punch-out-ai
 Punch-out AI uses computer vision and voice generation to give you personal boxing trainer experience.
 
-# Voice Chat AI
+## Technical Description
 
 A Next.js web application that enables voice conversations with an AI using ElevenLabs' React SDK for conversational AI capabilities. Users can have real-time voice conversations with an AI boxing trainer.
 

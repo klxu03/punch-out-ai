@@ -2,3 +2,7 @@ streamlit
 elevenlabs
 elevenlabs[pyaudio]
 python-dotenv
+fastapi
+uvicorn[standard]
+websockets>=12.0
+pydantic>=2.6.1
