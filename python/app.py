@@ -1,89 +1,110 @@
-import os
 import streamlit as st
-from dotenv import load_dotenv
-from elevenlabs.client import ElevenLabs
-from elevenlabs.conversational_ai.conversation import Conversation
-from elevenlabs.conversational_ai.default_audio_interface import DefaultAudioInterface
-
-# Load environment variables
-load_dotenv()
-AGENT_ID = os.getenv("ELEVENLABS_AGENT_ID")
-API_KEY = os.getenv("ELEVENLABS_API_KEY")
+import websockets
+import asyncio
+import json
+import requests
+from io import BytesIO
+from elevenlabs import stream
+from tts import text_to_speech_stream
 
 # Initialize session state
-if "conversation" not in st.session_state:
-    st.session_state.conversation = None
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "conversation_active" not in st.session_state:
-    st.session_state.conversation_active = False
+if "workout_active" not in st.session_state:
+    st.session_state.workout_active = False
+if "workout_started" not in st.session_state:
+    st.session_state.workout_started = False
+if "last_sequence" not in st.session_state:
+    st.session_state.last_sequence = None
 
 # Page config
-st.set_page_config(page_title="AI Conversation", page_icon="🎤")
-st.title("AI Conversation")
+st.set_page_config(page_title="Punch-Out AI Training", page_icon="🥊")
+st.title("Punch-Out AI Training")
 
-def on_agent_response(response):
-    """Callback for agent responses"""
-    st.session_state.messages.append(("assistant", response))
-    
-def on_agent_correction(original, corrected):
-    """Callback for agent response corrections"""
-    # Find and update the last assistant message if it was the original
-    if st.session_state.messages and st.session_state.messages[-1] == ("assistant", original):
-        st.session_state.messages[-1] = ("assistant", corrected)
+async def get_next_combo():
+    """Fetch next combo from API and stream it through text-to-speech"""
+    try:
+        # Get new sequence from API
+        response = requests.get("http://localhost:8000/generate-sequence")
+        sequence_data = response.json()
         
-def on_user_transcript(transcript):
-    """Callback for user transcripts"""
-    st.session_state.messages.append(("user", transcript))
+        # Convert description to speech
+        description = sequence_data["description"]
+        audio_stream = text_to_speech_stream(description)
+        
+        # Stream the audio
+        stream(audio_stream)
+        
+        # Display the sequence
+        st.session_state.last_sequence = sequence_data["sequence"]
+        st.success(f"Your combo: {description}")
+        
+    except Exception as e:
+        st.error(f"Error getting next combo: {str(e)}")
 
-def initialize_conversation():
-    """Initialize a new conversation"""
-    if not AGENT_ID:
-        st.error("AGENT_ID environment variable must be set")
-        return None
+async def start_workout():
+    """Connect to WebSocket endpoint and stream audio"""
+    uri = "ws://localhost:8000/start"
     
-    if not API_KEY:
-        st.warning("ELEVENLABS_API_KEY not set, assuming the agent is public")
+    try:
+        async with websockets.connect(uri) as websocket:
+            st.toast("Connected to training session!")
+            
+            # Create a BytesIO buffer to collect audio chunks
+            audio_buffer = BytesIO()
+            
+            while True:
+                try:
+                    message = await websocket.recv()
+                    if isinstance(message, bytes):
+                        # Add audio chunk to buffer
+                        audio_buffer.write(message)
+                    else:
+                        # Parse JSON message
+                        data = json.loads(message)
+                        
+                        # If we received the "ready" status, play the collected audio
+                        if data.get("status") == "ready":
+                            # Reset buffer position and stream the audio
+                            audio_buffer.seek(0)
+                            stream(audio_buffer)
+                            st.session_state.workout_started = True
+                            st.rerun()
+                            break
+                            
+                except websockets.exceptions.ConnectionClosed:
+                    break
+                        
+    except Exception as e:
+        st.error(f"Error during workout: {str(e)}")
+        st.session_state.workout_active = False
+        st.session_state.workout_started = False
 
-    client = ElevenLabs(api_key=API_KEY)
+def main():
+    # Center the buttons using columns
+    col1, col2, col3 = st.columns([1, 2, 1])
     
-    conversation = Conversation(
-        client,
-        AGENT_ID,
-        requires_auth=bool(API_KEY),
-        audio_interface=DefaultAudioInterface(),
-        callback_agent_response=on_agent_response,
-        callback_agent_response_correction=on_agent_correction,
-        callback_user_transcript=on_user_transcript
-    )
-    return conversation
+    with col2:
+        if not st.session_state.workout_active:
+            if st.button("Start New Workout", type="primary", use_container_width=True):
+                st.session_state.workout_active = True
+                st.session_state.workout_started = False
+                st.rerun()
+        
+        elif not st.session_state.workout_started:
+            st.info("Starting workout... Get ready!", icon="🎯")
+            asyncio.run(start_workout())
+            
+        else:
+            st.success("Workout in progress! Choose your next move:", icon="🥊")
+            
+            # Add Get Next Combo button
+            if st.button("Get Next Combo", type="primary", use_container_width=True):
+                asyncio.run(get_next_combo())
+            
+            # Add End Workout button
+            if st.button("End Workout", type="secondary", use_container_width=True):
+                st.session_state.workout_active = False
+                st.session_state.workout_started = False
+                st.rerun()
 
-# Control buttons
-col1, col2 = st.columns(2)
-with col1:
-    if not st.session_state.conversation_active:
-        if st.button("Start Conversation", type="primary"):
-            st.session_state.conversation = initialize_conversation()
-            if st.session_state.conversation:
-                st.session_state.conversation.start_session()
-                st.session_state.conversation_active = True
-                st.query_params.active = "true"
-    else:
-        if st.button("End Conversation", type="secondary"):
-            if st.session_state.conversation:
-                st.session_state.conversation.end_session()
-            st.session_state.conversation = None
-            st.session_state.conversation_active = False
-            st.query_params.active = "false"
-            st.rerun()
-
-# Display chat messages
-for role, content in st.session_state.messages:
-    with st.chat_message(role):
-        st.write(content)
-
-# Display recording status and maintain conversation
-if st.session_state.conversation_active and st.session_state.conversation:
-    st.info("🎤 Recording... Press 'End Conversation' when done.")
-    # This call blocks and keeps the conversation going
-    st.session_state.conversation.wait_for_session_end()
+if __name__ == "__main__":
+    main()
