@@ -5,6 +5,15 @@ import random
 from datetime import datetime
 import asyncio
 from tts import text_to_speech_stream
+import openai
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+openai_api_key = os.getenv("OPENAI_API_KEY")
+print(f"OpenAI API key loaded: {'Yes' if openai_api_key else 'No'}")  # Debug log - only shows if key exists, not the key itself
+openai.api_key = openai_api_key
 
 app = FastAPI(title="Punch-Out AI API")
 
@@ -21,11 +30,10 @@ PUNCH_TYPES = {
 class PunchSequenceResponse(BaseModel):
     sequence: str
     description: str
+    motivational_message: str
 
 class PunchResult(BaseModel):
-    sequence: str
-    accuracy: List[float]  # Accuracy score for each punch (0.0 to 1.0)
-    total_time: float     # Total time taken to complete the sequence in seconds
+    num_correct: int
 
 # State management
 class GameState:
@@ -37,6 +45,18 @@ class GameState:
         self.best_score: float = 0.0
         self.current_streak: int = 0
         self.best_streak: int = 0
+        self.num_last_correct: int = 0  # Number of punches correctly executed in the last sequence
+
+    def log_state(self, endpoint: str):
+        """Log the current state to console"""
+        print(f"\n=== GameState after {endpoint} ===")
+        print(f"Current Sequence: {self.current_sequence}")
+        print(f"Total Punches: {self.total_punches}")
+        print(f"Best Score: {self.best_score}")
+        print(f"Current Streak: {self.current_streak}")
+        print(f"Best Streak: {self.best_streak}")
+        print(f"Last Correct: {self.num_last_correct}")
+        print("=" * 40 + "\n")
 
 # Initialize game state
 game_state = GameState()
@@ -59,14 +79,16 @@ Let's begin!
 @app.get("/generate-sequence", response_model=PunchSequenceResponse)
 async def generate_sequence(length: int = 5):
     """
-    Generate a random sequence of punches.
+    Generate a random sequence of punches and a motivational message from a boxing coach.
     
     Args:
         length (int): The number of punches in the sequence (default: 5)
     
     Returns:
-        PunchSequenceResponse: A sequence of punch numbers and their description
+        PunchSequenceResponse: A sequence of punch numbers, their description, and a motivational message
     """
+    game_state.log_state("generate_sequence [before]")
+    
     if length < 1 or length > 20:
         raise HTTPException(status_code=400, detail="Sequence length must be between 1 and 20")
     
@@ -77,51 +99,61 @@ async def generate_sequence(length: int = 5):
     # Create description
     description = " → ".join([f"{num} ({PUNCH_TYPES[num]})" for num in sequence])
     
-    return PunchSequenceResponse(sequence=sequence_str, description=description)
+    # Generate motivational message using OpenAI
+    last_correct = game_state.num_last_correct
+    last_performance = f"They got {last_correct} punches correct in their last sequence. " if last_correct > 0 else ""
+    
+    prompt = f"""As a boxing coach, give a short, energetic motivational message (max 30 words) to encourage 
+    your athlete during their training. {last_performance} You could even give them feedback on how they can improve their form, although that is not always necessary. 
+    The next combination they'll practice is: {description}. DO NOT include any emojis or symbols that cannot be easily said aloud."""
+    
+    print(f"Calling OpenAI with prompt: {prompt}")  # Debug log
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_completion_tokens=100
+        )
+        print(f"OpenAI response: {response}")  # Debug log
+        motivational_message = response.choices[0].message.content.strip()
+        if not motivational_message:  # If we get an empty response
+            motivational_message = "Let's crush this combo! Stay focused and give it your all!"
+    except Exception as e:
+        print(f"Error calling OpenAI: {str(e)}")  # Debug log
+        motivational_message = "Let's crush this combo! Stay focused and give it your all!"  # Fallback message
+    
+    print(f"Final motivational message: {motivational_message}")  # Debug log
+    
+    response = PunchSequenceResponse(
+        sequence=sequence_str,
+        description=description,
+        motivational_message=motivational_message
+    )
+    
+    game_state.current_sequence = sequence_str
+    game_state.log_state("generate_sequence [after]")
+    return response
 
-@app.post("/submit-result")
-async def submit_result(result: PunchResult):
+@app.post("/submit-result/{num_correct}")
+async def submit_result(num_correct: int):
     """
-    Submit the results of a completed punch sequence.
+    Submit the number of correctly executed punches from the last sequence.
     
     Args:
-        result (PunchResult): The results of the punch sequence, including accuracy scores
+        num_correct (int): Number of punches executed correctly
         
     Returns:
         dict: A summary of the performance
     """
-    # Convert string sequence to list of integers
-    sequence = [int(digit) for digit in result.sequence]
+    game_state.log_state("submit_result [before]")
     
-    if len(sequence) != len(result.accuracy):
-        raise HTTPException(
-            status_code=400,
-            detail="Sequence length must match accuracy length"
-        )
+    # Update game state with number of correct punches
+    game_state.num_last_correct = num_correct
     
-    # Calculate average accuracy
-    avg_accuracy = sum(result.accuracy) / len(result.accuracy)
-    
-    # Calculate punches per second
-    pps = len(sequence) / result.total_time if result.total_time > 0 else 0
-    
-    # Generate performance summary
-    performance_rating = "Excellent!" if avg_accuracy > 0.9 else \
-                        "Great job!" if avg_accuracy > 0.8 else \
-                        "Good work!" if avg_accuracy > 0.7 else \
-                        "Keep practicing!"
-    
+    game_state.log_state("submit_result [after]")
     return {
-        "average_accuracy": round(avg_accuracy * 100, 2),
-        "punches_per_second": round(pps, 2),
-        "performance_rating": performance_rating,
-        "sequence_details": [
-            {
-                "punch": f"{num} ({PUNCH_TYPES[num]})",
-                "accuracy": f"{acc * 100:.2f}%"
-            }
-            for num, acc in zip(sequence, result.accuracy)
-        ]
+        "message": "Results submitted successfully",
+        "num_correct": num_correct
     }
 
 @app.websocket("/start")
@@ -179,6 +211,7 @@ async def start_training(websocket: WebSocket):
 @app.get("/state")
 async def get_state():
     """Get the current game state"""
+    game_state.log_state("get_state")
     return {
         "current_sequence": game_state.current_sequence,
         "total_punches": game_state.total_punches,
@@ -191,6 +224,8 @@ async def get_state():
 @app.post("/reset-state")
 async def reset_state():
     """Reset the game state"""
+    game_state.log_state("reset_state [before]")
     global game_state
     game_state = GameState()
+    game_state.log_state("reset_state [after]")
     return {"message": "Game state reset successfully"}

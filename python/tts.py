@@ -17,10 +17,10 @@ def text_to_speech_stream(text: str) -> IO[bytes]:
     
     # Perform the text-to-speech conversion
     response = client.text_to_speech.convert(
-        voice_id="pNInz6obpgDQGcFmaJgB", # Adam pre-made voice
+        voice_id="DTKMou8ccj1ZaWGBiotd", # Using Jamahal's voice - a friendly, energetic male voice perfect for workout instructions
         output_format="mp3_22050_32",
         text=text,
-        model_id="eleven_multilingual_v2",
+        model_id="eleven_flash_v2_5",
         voice_settings=VoiceSettings(
             stability=0.0,
             similarity_boost=1.0,

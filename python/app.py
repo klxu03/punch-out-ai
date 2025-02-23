@@ -25,19 +25,28 @@ async def get_next_combo():
         # Get new sequence from API
         response = requests.get("http://localhost:8000/generate-sequence")
         sequence_data = response.json()
+        print(f"API Response: {sequence_data}")  # Debug log
         
-        # Convert description to speech
-        description = sequence_data["description"]
-        audio_stream = text_to_speech_stream(description)
+        # Convert motivation message to speech
+        feedback = sequence_data.get("motivational_message", "")
+        print(f"Feedback to speak: {feedback}")  # Debug log
+        
+        if not feedback:
+            st.error("No motivational message received from the coach")
+            return
+            
+        audio_stream = text_to_speech_stream(feedback)
         
         # Stream the audio
         stream(audio_stream)
         
-        # Display the sequence
+        # Display the trainer's feedback and sequence
+        st.info(f"Cus says: {feedback}")
+        st.info(f"Your combo: {sequence_data['description']}")
         st.session_state.last_sequence = sequence_data["sequence"]
-        st.success(f"Your combo: {description}")
         
     except Exception as e:
+        print(f"Error in get_next_combo: {str(e)}")  # Debug log
         st.error(f"Error getting next combo: {str(e)}")
 
 async def start_workout():
