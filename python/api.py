@@ -224,8 +224,8 @@ async def get_state():
 @app.post("/reset-state")
 async def reset_state():
     """Reset the game state"""
-    game_state.log_state("reset_state [before]")
     global game_state
+    game_state.log_state("reset_state [before]")
     game_state = GameState()
     game_state.log_state("reset_state [after]")
     return {"message": "Game state reset successfully"}
