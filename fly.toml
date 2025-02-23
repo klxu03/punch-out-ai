@@ -1,24 +1,22 @@
-app = "punch-out-ai"  # replace with your Fly app name
+app = "punch-out-ai"  # Your Fly app name
 
 kill_signal = "SIGINT"
 kill_timeout = 5
 
 [build]
-  # Use Heroku's buildpack for Python
+  # Set the build context to the python folder so the buildpack sees your code and dependencies.
+  context = "./python"
   builder = "heroku/buildpacks:20"
   buildpacks = ["heroku/python"]
-  [build.args]
-    APP_ROOT = "python"  # tells the buildpack to use the python/ folder as the app root
 
 [env]
-  PORT = "8080"  # Fly.io expects your app to listen on this port
+  PORT = "8000"  # Fly.io sets this for your app
 
-# Use the entrypoint to start your FastAPI server.
-# Note: --reload is for development; remove it for production.
+# Use an entrypoint that runs your FastAPI app.
 entrypoint = "uvicorn api:app --reload --host 0.0.0.0 --port $PORT"
 
 [[services]]
-  internal_port = 8080
+  internal_port = 8000
   protocol = "tcp"
 
   [[services.ports]]
