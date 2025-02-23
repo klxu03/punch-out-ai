@@ -1,0 +1,36 @@
+app = "punch-out-ai"  # replace with your Fly app name
+
+kill_signal = "SIGINT"
+kill_timeout = 5
+
+[build]
+  # Use Heroku's buildpack for Python
+  builder = "heroku/buildpacks:20"
+  buildpacks = ["heroku/python"]
+  [build.args]
+    APP_ROOT = "python"  # tells the buildpack to use the python/ folder as the app root
+
+[env]
+  PORT = "8080"  # Fly.io expects your app to listen on this port
+
+# Use the entrypoint to start your FastAPI server.
+# Note: --reload is for development; remove it for production.
+entrypoint = "uvicorn api:app --reload --host 0.0.0.0 --port $PORT"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [services.concurrency]
+    type = "connections"
+    soft_limit = 25
+    hard_limit = 50
+
