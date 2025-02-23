@@ -1,4 +1,4 @@
-app = "punch-out-ai"  # Your Fly app name
+app = "punch-out-ai"  # Replace with your Fly.io app name
 
 kill_signal = "SIGINT"
 kill_timeout = 5
