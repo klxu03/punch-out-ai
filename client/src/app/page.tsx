@@ -1,4 +1,7 @@
+import dynamic from 'next/dynamic';
+
 import { Conversation } from './components/conversation';
+const Pose = dynamic(() => import('./components/pose'), { ssr: false });
 
 export default function Home() {
   return (
@@ -8,6 +11,7 @@ export default function Home() {
           ElevenLabs Conversational AI
         </h1>
         <Conversation />
+        <Pose />
       </div>
     </main>
   );

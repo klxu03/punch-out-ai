@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
+import withTM from "next-transpile-modules";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    esmExternals: false,
+  },
 };
 
-export default nextConfig;
+export default withTM(["@mediapipe/pose"])(nextConfig);
