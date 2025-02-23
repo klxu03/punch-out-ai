@@ -1,0 +1,7 @@
+# Coding Guidelines 
+- My project uses the NextJS framework
+- The primary programming language is TypeScript
+- Voice generation and conversational AI is provided by ElevenLabs' React SDK: https://elevenlabs.io/docs/conversational-ai/libraries/react
+- Always add documentation when creating new functions and classes
+- Create a local environment variable file and add it to my .gitignore
+- Only import packages that are needed for the project, don't introduce unnecessary dependencies and complexity
