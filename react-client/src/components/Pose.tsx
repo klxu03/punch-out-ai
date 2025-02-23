@@ -3,30 +3,17 @@ import * as posedetection from '@tensorflow-models/pose-detection';
 import '@tensorflow/tfjs-backend-webgl';
 import * as tf from '@tensorflow/tfjs';
 
-// MoveNet keypoint indices:
-// 0: nose
-// 1: left_eye, 2: right_eye, 3: left_ear, 4: right_ear (we'll skip these)
-// 5: left_shoulder, 6: right_shoulder, 7: left_elbow, 8: right_elbow
-// 9: left_wrist, 10: right_wrist, 11: left_hip, 12: right_hip
-// 13: left_knee, 14: right_knee, 15: left_ankle, 16: right_ankle
-
-// We skip eyes & ears (indices 1–4), so skeleton lines won't include them:
+// MoveNet keypoint indices (we exclude eyes & ears for skeleton drawing in our earlier code)
+// Upper body: indices 0 (nose) through 12 (right hip) are considered "above the knee."
 const SKELETON_NO_EYES: [number, number][] = [
-  [5, 6],   // shoulders
+  [5, 6],    // shoulders
   [5, 7], [7, 9],   // left arm
   [6, 8], [8, 10],  // right arm
   [5, 11], [6, 12], // torso to hips
-  [11, 12],         // hips
-  [11, 13], [13, 15], // left leg
-  [12, 14], [14, 16], // right leg
-  // Nose (0) is optional. If you want a line from nose to shoulders,
-  // you could add something like [0, 5] and [0, 6].
+  [11, 12]          // hips connection
 ];
 
-// Indices we want to skip altogether:
-const EXCLUDED_INDICES = [1, 2, 3, 4]; // eyes & ears
-
-// Lower threshold to show more points
+const EXCLUDED_INDICES = [1, 2, 3, 4]; // eyes & ears to skip for drawing
 const MIN_CONFIDENCE = 0.3;
 
 export default function Pose() {
@@ -38,7 +25,7 @@ export default function Pose() {
     let detector: posedetection.PoseDetector | null = null;
     let animationFrameId: number;
 
-    // 1) Set up the webcam at 160x160 for speed
+    // 1) Set up the webcam at 160x160 for capture.
     const setupCamera = async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
         console.error("getUserMedia not supported in this browser.");
@@ -67,7 +54,7 @@ export default function Pose() {
       }
     };
 
-    // 2) Load MoveNet (Lightning) & force WebGL
+    // 2) Load the MoveNet model (Lightning) & force WebGL backend.
     const loadModel = async () => {
       await tf.setBackend('webgl');
       await tf.ready();
@@ -80,7 +67,7 @@ export default function Pose() {
       );
     };
 
-    // 3) Draw keypoints (excluding eyes/ears) on canvas
+    // 3) Draw keypoints (skipping eyes/ears) on canvas.
     const drawKeypoints = (keypoints: posedetection.Keypoint[], ctx: CanvasRenderingContext2D) => {
       keypoints.forEach((keypoint, index) => {
         if (
@@ -97,13 +84,12 @@ export default function Pose() {
       });
     };
 
-    // 4) Draw skeleton lines, skipping eyes/ears
+    // 4) Draw skeleton lines (only between allowed keypoints).
     const drawSkeleton = (keypoints: posedetection.Keypoint[], ctx: CanvasRenderingContext2D) => {
       SKELETON_NO_EYES.forEach(([i1, i2]) => {
         const kp1 = keypoints[i1];
         const kp2 = keypoints[i2];
 
-        // Skip if either keypoint is excluded or below threshold
         if (
           EXCLUDED_INDICES.includes(i1) ||
           EXCLUDED_INDICES.includes(i2) ||
@@ -122,7 +108,7 @@ export default function Pose() {
       });
     };
 
-    // 5) Main loop: estimate poses & render
+    // 5) Main loop: estimate poses & render to canvas.
     const renderPrediction = async () => {
       if (
         detector &&
@@ -135,18 +121,18 @@ export default function Pose() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Match canvas to the actual video size
+        // Set canvas internal resolution to match capture (320x320)
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
 
-        // Draw the video feed
+        // Draw the video feed onto the canvas.
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Estimate poses
+        // Estimate poses.
         const currentPoses = await detector.estimatePoses(video, { flipHorizontal: false });
         setPoses(currentPoses);
 
-        // Draw each pose
+        // Draw keypoints and skeleton lines.
         currentPoses.forEach((pose) => {
           drawKeypoints(pose.keypoints, ctx);
           drawSkeleton(pose.keypoints, ctx);
@@ -155,42 +141,49 @@ export default function Pose() {
       animationFrameId = requestAnimationFrame(renderPrediction);
     };
 
-    // 6) Initialize
+    // 6) Initialize: setup camera, load model, start loop.
     setupCamera()
       .then(loadModel)
       .then(renderPrediction);
 
-    // 7) Cleanup on unmount
+    // 7) Cleanup on unmount.
     return () => {
       if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach((track) => track.stop());
+        (videoRef.current.srcObject as MediaStream)
+          .getTracks()
+          .forEach((track) => track.stop());
       }
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
 
+  // Filter out keypoints for the JSON output: only include indices < 13 (upper body).
+  const upperBodyData = poses.map((pose) => ({
+    keypoints: pose.keypoints.filter((_, idx) => idx < 13 && idx > 4)
+  }));
+
   return (
     <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-      {/* Hidden video (source for frames) */}
+      {/* Hidden video element used as frame source */}
       <video ref={videoRef} style={{ display: 'none' }} />
 
-      {/* Single canvas showing video + body keypoints & lines (no eyes/ears) */}
+      {/* Canvas: internal resolution 320x320, displayed at 640x640 (2x scaling) */}
       <canvas
         ref={canvasRef}
         style={{
           border: '2px solid red',
-          // Expand the display size so you can see it bigger,
-          // but the internal resolution is still 160x160 for speed.
-          width: '320px',
-          height: '320px',
+          width: '640px',
+          height: '640px',
           backgroundColor: '#333',
         }}
       />
 
-      {/* Debug info */}
-      <pre style={{ color: 'lime', textAlign: 'left', display: 'inline-block', marginTop: '1rem' }}>
-        {JSON.stringify(poses, null, 2)}
-      </pre>
+      {/* JSON output (upper body keypoints) strictly under the canvas */}
+      <div style={{ marginTop: '1rem', textAlign: 'left', display: 'inline-block' }}>
+        <pre style={{ color: 'lime' }}>
+          {JSON.stringify(upperBodyData, null, 2)}
+        </pre>
+      </div>
     </div>
   );
 }
