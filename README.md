@@ -1,5 +1,8 @@
 # Punch-Out!! AI
 
+![VR Demo](images/vr.jpeg)
+![Pose Tracking Demo](images/pose-tracking.jpeg)
+
 ## 1. Motivation
 Boxing training is expensive and often inaccessible. Personal training sessions can cost upwards of $100/hour, and even group classes are a significant expense. Recent advances in VR, AI, and computer vision now make it possible to deliver high-quality, personalized boxing instruction at a fraction of the cost. Punch-Out!! AI aims to democratize access to expert-level boxing training, allowing anyone to improve their skills safely and effectively, anytime, anywhere.
 
