@@ -3,9 +3,25 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #1f2937;
+  /* Flexoki Dark Theme Colors */
+  --flexoki-black: #100f0f;
+  --flexoki-black-alt: #1c1b1a;
+  --flexoki-gray: #262524;
+  --flexoki-gray-alt: #403e3c;
+  --flexoki-white: #cecdc3;
+  --flexoki-white-alt: #e6e4d9;
+  --flexoki-red: #af3029;
+  --flexoki-orange: #bc5215;
+  --flexoki-yellow: #ad8301;
+  --flexoki-green: #66800b;
+  --flexoki-cyan: #24837b;
+  --flexoki-blue: #205ea6;
+  --flexoki-purple: #5e409d;
+  --flexoki-magenta: #a02f6f;
+
+  color-scheme: dark;
+  color: var(--flexoki-white); 
+  background-color: var(--flexoki-black);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -15,11 +31,11 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--flexoki-blue);
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--flexoki-cyan);
 }
 
 body {
@@ -28,7 +44,15 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #1f2937;
+  background-color: var(--flexoki-black);
+}
+
+h1 {
+  color: var(--flexoki-green);
+}
+
+h2, h3 {
+  color: var(--flexoki-blue);
 }
 
 h1 {
@@ -38,32 +62,190 @@ h1 {
 
 button {
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--flexoki-gray-alt);
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--flexoki-blue);
+  color: var(--flexoki-white-alt);
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: all 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  transform: scale(1.05);
+  background-color: var(--flexoki-purple);
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 4px auto var(--flexoki-cyan);
 }
 
+/* Audio element styling */
+audio {
+  filter: invert(0.8);
+  background-color: var(--flexoki-gray);
+  border-radius: 8px;
+}
+
+/* Terminal styling */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes glitch {
+  0% {
+    text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75), -0.05em -0.025em 0 rgba(0, 255, 0, 0.75), 0.025em 0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  14% {
+    text-shadow: 0.05em 0 0 rgba(255, 0, 0, 0.75), -0.05em -0.025em 0 rgba(0, 255, 0, 0.75), 0.025em 0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  15% {
+    text-shadow: -0.05em -0.025em 0 rgba(255, 0, 0, 0.75), 0.025em 0.025em 0 rgba(0, 255, 0, 0.75), -0.05em -0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  49% {
+    text-shadow: -0.05em -0.025em 0 rgba(255, 0, 0, 0.75), 0.025em 0.025em 0 rgba(0, 255, 0, 0.75), -0.05em -0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  50% {
+    text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75), 0.05em 0 0 rgba(0, 255, 0, 0.75), 0 -0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  99% {
+    text-shadow: 0.025em 0.05em 0 rgba(255, 0, 0, 0.75), 0.05em 0 0 rgba(0, 255, 0, 0.75), 0 -0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+  100% {
+    text-shadow: -0.025em 0 0 rgba(255, 0, 0, 0.75), -0.025em -0.025em 0 rgba(0, 255, 0, 0.75), -0.025em -0.05em 0 rgba(0, 0, 255, 0.75);
+  }
+}
+
+@keyframes scan {
+  0% {
+    background-position: 0 -100vh;
+  }
+  100% {
+    background-position: 0 100vh;
+  }
+}
+
+.terminal-cursor {
+  animation: blink 1s step-end infinite;
+}
+
+.glitch-text {
+  position: relative;
+  animation: glitch 3s infinite;
+  animation-play-state: paused;
+}
+
+.glitch-text:hover {
+  animation-play-state: running;
+}
+
+.terminal-body {
+  background-color: var(--flexoki-black-alt);
+  background-image: 
+    radial-gradient(rgba(102, 128, 11, 0.08) 1px, transparent 0),
+    linear-gradient(rgba(102, 128, 11, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px, 100% 20px;
+  box-shadow: inset 0 0 30px rgba(102, 128, 11, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    transparent 0px,
+    rgba(0, 0, 0, 0.1) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+  z-index: 10;
+}
+
+.scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 8;
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(102, 128, 11, 0.02) 50%,
+    rgba(102, 128, 11, 0.04) 100%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+.scan-effect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, 
+    transparent, 
+    transparent 50%, 
+    rgba(102, 128, 11, 0.1) 50%, 
+    rgba(102, 128, 11, 0.1)
+  );
+  background-size: 100% 4px;
+  z-index: 9;
+}
+
+.camera-overlay {
+  position: relative;
+}
+
+.camera-overlay::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    rgba(102, 128, 11, 0.1) 50%,
+    rgba(0, 0, 0, 0.1) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: rgba(102, 128, 11, 0.2);
+  box-shadow: 0 0 10px rgba(102, 128, 11, 0.5);
+  z-index: 6;
+  animation: scan 4s linear infinite;
+}
+
+/* Remove light mode */
 @media (prefers-color-scheme: light) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    color: var(--flexoki-white);
+    background-color: var(--flexoki-black);
   }
   a:hover {
-    color: #747bff;
+    color: var(--flexoki-cyan);
   }
   button {
-    background-color: #f9f9f9;
+    background-color: var(--flexoki-blue);
+    color: var(--flexoki-white-alt);
   }
 }

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import random
@@ -16,6 +17,15 @@ print(f"OpenAI API key loaded: {'Yes' if openai_api_key else 'No'}")  # Debug lo
 openai.api_key = openai_api_key
 
 app = FastAPI(title="Punch-Out AI API")
+
+# Configure CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # React client URL
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 # Define the punch types with their corresponding numbers
 PUNCH_TYPES = {
@@ -64,14 +74,6 @@ game_state = GameState()
 START_SCRIPT = """
 Alright champion, let's get ready for some training! I'm Cus, and I'll be your coach today.
 Remember, boxing isn't just about throwing punches - it's about precision, timing, and staying focused.
-When you see the numbers, follow along with these moves:
-One is a Jab
-Two is a Cross
-Three is a Left Hook
-Four is a Right Hook
-Five is a Left Uppercut
-Six is a Right Uppercut
-
 Keep your guard up, stay light on your feet, and follow my lead.
 Let's begin!
 """
@@ -156,57 +158,32 @@ async def submit_result(num_correct: int):
         "num_correct": num_correct
     }
 
-@app.websocket("/start")
-async def start_training(websocket: WebSocket):
+@app.get("/start-script")
+async def get_start_script():
     """
-    WebSocket endpoint to start a training session.
-    Streams the welcome message using ElevenLabs text-to-speech and initializes game state.
+    HTTP endpoint to get the welcome script for a new training session.
+    Initializes the game state and returns the script to be spoken by the client.
     """
-    await websocket.accept()
-    
     try:
-        # Send welcome message
-        audio_stream = text_to_speech_stream(START_SCRIPT)
-        
-        # Stream the audio in chunks
-        chunk_size = 4096  # Increased chunk size for better performance
-        while True:
-            chunk = audio_stream.read(chunk_size)
-            if not chunk:
-                break
-            await websocket.send_bytes(chunk)
-            await asyncio.sleep(0.01)  # Small delay to prevent overwhelming the connection
-            
         # Reset game state for new session
         global game_state
         game_state = GameState()
         game_state.start_time = datetime.now()
         
-        await websocket.send_json({
+        return {
             "status": "ready",
-            "message": "Training session started",
+            "script": START_SCRIPT,
             "state": {
                 "current_streak": game_state.current_streak,
                 "best_streak": game_state.best_streak,
                 "best_score": game_state.best_score
             }
-        })
+        }
         
     except Exception as e:
-        error_msg = f"Error during training session: {str(e)}"
+        error_msg = f"Error starting training session: {str(e)}"
         print(error_msg)  # Log the error
-        try:
-            await websocket.send_json({
-                "status": "error",
-                "message": error_msg
-            })
-        except:
-            pass  # Connection might be already closed
-    finally:
-        try:
-            await websocket.close()
-        except:
-            pass  # Connection might be already closed
+        raise HTTPException(status_code=500, detail=error_msg)
 
 @app.get("/state")
 async def get_state():
